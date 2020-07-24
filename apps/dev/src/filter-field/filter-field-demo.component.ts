@@ -22,6 +22,7 @@ import {
   DtFilterFieldCurrentFilterChangeEvent,
   DtFilterFieldDefaultDataSource,
   DtFilterFieldTag,
+  DtFilterFieldChangeEvent,
 } from '@dynatrace/barista-components/filter-field';
 
 import { COMPLEX_DATA } from './data';
@@ -34,6 +35,7 @@ import {
   TEST_DATA_PARTIAL,
   TEST_DATA_PARTIAL_2,
 } from './testdata';
+import { MULTI_SELECT_DATA } from './multi-select';
 
 // tslint:disable:no-any
 
@@ -41,6 +43,7 @@ const DATA_SETS = new Map<string, any>([
   ['TEST_DATA', TEST_DATA],
   ['KUBERNETES_DATA', KUBERNETES_DATA],
   ['COMPLEX_DATA', COMPLEX_DATA],
+  ['MULTI_SELECT_DATA', MULTI_SELECT_DATA],
   ['MULTIDIMENSIONAL_ANALYSIS', MULTIDIMENSIONAL_ANALYSIS],
 ]);
 
@@ -142,6 +145,7 @@ export class FilterFieldDemo implements AfterViewInit, OnDestroy {
   _dataSource = new DtFilterFieldDefaultDataSource(TEST_DATA);
   _loading = false;
   _disabled = false;
+  _filters;
 
   ngAfterViewInit(): void {
     this.filterField.currentTags.subscribe((tags) => {
@@ -155,8 +159,9 @@ export class FilterFieldDemo implements AfterViewInit, OnDestroy {
     this._tagChangesSub.unsubscribe();
   }
 
-  filterChanges(event: any): void {
+  filterChanges(event: DtFilterFieldChangeEvent<any>): void {
     console.log(event);
+    this._filters = event.filters;
   }
 
   currentFilterChanges(

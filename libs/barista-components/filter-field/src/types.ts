@@ -15,7 +15,6 @@
  */
 
 import { isDefined, isObject } from '@dynatrace/barista-components/core';
-
 import { getDtFilterFieldRangeNoOperatorsError } from './filter-field-errors';
 import { DtFilterFieldValidator } from './filter-field-validation';
 
@@ -27,8 +26,13 @@ export enum DtNodeFlags {
   TypeOption = 1 << 2,
   TypeGroup = 1 << 3,
   TypeRange = 1 << 4,
-  RenderTypes = TypeAutocomplete | TypeFreeText | TypeRange,
-  Types = TypeAutocomplete | TypeFreeText | TypeOption | TypeGroup,
+  TypeMultiSelect = 1 << 5,
+  RenderTypes = TypeAutocomplete | TypeFreeText | TypeRange | TypeMultiSelect,
+  Types = TypeAutocomplete |
+    TypeFreeText |
+    TypeOption |
+    TypeGroup |
+    TypeMultiSelect,
 }
 
 export interface DtNodeDef<D = unknown> {
@@ -39,6 +43,7 @@ export interface DtNodeDef<D = unknown> {
   operator: DtOperatorDef | null;
   freeText: DtFreeTextDef | null;
   range: DtRangeDef | null;
+  multiSelect: DtMultiSelectDef | null;
   data: D;
 }
 
@@ -54,6 +59,13 @@ export interface DtFreeTextDef<S = unknown> {
   suggestions: DtNodeDef<S>[];
   validators: DtFilterFieldValidator[];
   unique: boolean;
+}
+
+export interface DtMultiSelectDef<OpGr = unknown, Op = unknown> {
+  async: boolean;
+  multiOptions: DtNodeDef<OpGr>[];
+  operators: DtNodeDef<Op>[];
+  distinct: boolean;
 }
 
 export interface DtGroupDef<O = unknown> {
@@ -148,6 +160,41 @@ export function isDtRangeDef<D = unknown>(
   def: DtNodeDef<D> | null,
 ): def is DtNodeDef<D> & DtRangeDef {
   return isDtNodeDef(def) && !!(def.nodeFlags & DtNodeFlags.TypeRange);
+}
+
+/** Creates a new DtMultiSelectDef onto a provided existing NodeDef or a newly created one. */
+export function dtMultiSelectDef<D = unknown, OG = unknown, Op = unknown>(
+  data: D,
+  existingNodeDef: DtNodeDef | null,
+  multiOptions: DtNodeDef<OG>[],
+  async: boolean,
+  distinct: boolean,
+): DtNodeDef<D> & { multiSelect: DtMultiSelectDef<OG, Op> } {
+  const def = {
+    ...nodeDef(data, existingNodeDef),
+    multiSelect: { multiOptions, async, distinct, operators: [] },
+  };
+  def.nodeFlags |= DtNodeFlags.TypeMultiSelect;
+  return def;
+}
+
+/** Whether the provided def object is of type NodeDef and consists of an MultiSelectDef. */
+export function isDtMultiSelectDef<D = unknown>(
+  def: DtNodeDef<D> | null,
+): def is DtNodeDef<D> & DtMultiSelectDef {
+  return isDtNodeDef(def) && !!(def.nodeFlags & DtNodeFlags.TypeMultiSelect);
+}
+export function isAsyncDtMultiSelectDef<D>(
+  def: DtNodeDef<D> | null,
+): def is DtNodeDef<D> & {
+  multiSelect: DtMultiSelectDef;
+  option: DtOptionDef;
+} {
+  return !!(
+    isDtMultiSelectDef<D>(def) &&
+    isDtOptionDef<D>(def) &&
+    def.multiSelect?.distinct
+  );
 }
 
 /** Creates a new DtAutocompleteDef onto a provided existing NodeDef or a newly created one. */
@@ -293,6 +340,7 @@ function nodeDef<D = unknown>(
     existingNodeDef || {
       nodeFlags: 0,
       autocomplete: null,
+      multiSelect: null,
       freeText: null,
       option: null,
       group: null,
@@ -358,10 +406,27 @@ export function _isDtRangeValue(value: any): value is _DtRangeValue {
 }
 
 /** @internal */
+export type _DtMultiSelectValue<T> = DtNodeDef<T> & {
+  multiOptions: DtOptionDef[];
+};
+
+/** @internal */
+export function _isDtMultiSelectValue(
+  value: any,
+): value is _DtMultiSelectValue<any> {
+  return (
+    isObject(value) &&
+    value.hasOwnProperty('operator') &&
+    value.hasOwnProperty('range')
+  );
+}
+
+/** @internal */
 export type _DtFilterValue =
   | _DtAutocompleteValue<any>
   | _DtFreeTextValue
-  | _DtRangeValue;
+  | _DtRangeValue
+  | _DtMultiSelectValue<any>;
 
 /** @internal */
 export function _getSourceOfDtFilterValue<T>(value: _DtFilterValue): T {

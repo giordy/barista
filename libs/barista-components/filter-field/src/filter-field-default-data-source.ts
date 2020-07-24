@@ -28,6 +28,7 @@ import {
   dtGroupDef,
   dtFreeTextDef,
   dtRangeDef,
+  dtMultiSelectDef,
 } from './types';
 
 /** The simple Shape of an object to be usable as a option in an autocomplete or free-text */
@@ -42,6 +43,8 @@ export type DtFilterFieldDefaultDataSourceOption =
   | (DtFilterFieldDefaultDataSourceFreeText &
       DtFilterFieldDefaultDataSourceSimpleOption)
   | (DtFilterFieldDefaultDataSourceRange &
+      DtFilterFieldDefaultDataSourceSimpleOption)
+  | (DtFilterFieldDefaultDataSourceMultiSelect &
       DtFilterFieldDefaultDataSourceSimpleOption);
 
 /** Shape of an object to be usable as a group in a free-text */
@@ -59,6 +62,16 @@ export interface DtFilterFieldDefaultDataSourceGroup
 /** Shape of an object to be usable as an autocomplete */
 export interface DtFilterFieldDefaultDataSourceAutocomplete {
   autocomplete: Array<
+    DtFilterFieldDefaultDataSourceOption | DtFilterFieldDefaultDataSourceGroup
+  >;
+  distinct?: boolean;
+  async?: boolean;
+  partial?: boolean;
+}
+
+/** Shape of an object to be usable as an multiselect */
+export interface DtFilterFieldDefaultDataSourceMultiSelect {
+  multiOptions: Array<
     DtFilterFieldDefaultDataSourceOption | DtFilterFieldDefaultDataSourceGroup
   >;
   distinct?: boolean;
@@ -93,6 +106,7 @@ export type DtFilterFieldDefaultDataSourceType =
   | DtFilterFieldDefaultDataSourceOption
   | DtFilterFieldDefaultDataSourceGroup
   | DtFilterFieldDefaultDataSourceAutocomplete
+  | DtFilterFieldDefaultDataSourceMultiSelect
   | DtFilterFieldDefaultDataSourceFreeText
   | DtFilterFieldDefaultDataSourceRange;
 
@@ -223,6 +237,14 @@ export class DtFilterFieldDefaultDataSource
     return isObject(data) && Array.isArray(data.suggestions);
   }
 
+  /** Whether the provided data object is of type MultiSelectData */
+  isMultiSelect(
+    // tslint:disable-next-line: no-any
+    data: any,
+  ): data is DtFilterFieldDefaultDataSourceMultiSelect {
+    return isObject(data) && Array.isArray(data.multiOptions);
+  }
+
   /** Whether the provided data object is of type RangeData */
   // tslint:disable-next-line: no-any
   isRange(data: any): data is DtFilterFieldDefaultDataSourceRange {
@@ -245,6 +267,15 @@ export class DtFilterFieldDefaultDataSource
       data.autocomplete,
       def,
     );
+    return def;
+  }
+
+  /** Transforms the provided data into a DtNodeDef which contains a DtMultiSelectDef. */
+  transformMultiSelect(
+    data: DtFilterFieldDefaultDataSourceMultiSelect,
+  ): DtNodeDef<DtFilterFieldDefaultDataSourceMultiSelect> {
+    const def = dtMultiSelectDef(data, null, [], !!data.async, !!data.distinct);
+    def.multiSelect!.multiOptions = this.transformList(data.multiOptions, def);
     return def;
   }
 
@@ -339,6 +370,8 @@ export class DtFilterFieldDefaultDataSource
       def = this.transformFreeText(data);
     } else if (this.isRange(data)) {
       def = this.transformRange(data);
+    } else if (this.isMultiSelect(data)) {
+      def = this.transformMultiSelect(data);
     }
 
     if (this.isGroup(data)) {

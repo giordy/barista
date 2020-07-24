@@ -24,6 +24,7 @@ import {
   _DtFreeTextValue,
   DtNodeDef,
   _DtRangeValue,
+  _DtMultiSelectValue,
   dtAutocompleteDef,
   dtFreeTextDef,
   dtGroupDef,
@@ -39,6 +40,8 @@ import {
   isDtRenderType,
   isPartialDtAutocompleteDef,
   DtOptionDef,
+  _isDtMultiSelectValue,
+  dtMultiSelectDef,
 } from './types';
 
 /**
@@ -57,6 +60,7 @@ export function filterAutocompleteDef(
         : filterOptionDef(optionOrGroup, distinctIds, filterText),
     )
     .filter((optionOrGroup) => optionOrGroup !== null) as DtNodeDef[];
+
   return def.autocomplete!.async || optionsOrGroups.length
     ? dtAutocompleteDef(
         def.data,
@@ -127,6 +131,33 @@ export function filterOptionDef(
     defUniquePredicate(def, selectedOptionIds) &&
     optionFilterTextPredicate(def, filterText || '')
     ? def
+    : null;
+}
+
+/**
+ * Either returns the provided multiSelect def or null on whether the multiSelect still contains
+ * options or groups after filtering them based on the predicate functions below.
+ */
+export function filterMultiSelectDef(
+  def: DtNodeDef,
+  distinctIds: Set<string>,
+  filterText?: string,
+): DtNodeDef | null {
+  const multiOptions = def
+    .multiSelect!.multiOptions.map((optionOrGroup) =>
+      isDtGroupDef(optionOrGroup)
+        ? filterGroupDef(optionOrGroup, distinctIds, filterText)
+        : filterOptionDef(optionOrGroup, distinctIds, filterText),
+    )
+    .filter((optionOrGroup) => optionOrGroup !== null) as DtNodeDef[];
+  return def.multiSelect!.async || multiOptions.length
+    ? dtMultiSelectDef(
+        def.data,
+        def,
+        multiOptions,
+        def.multiSelect!.async,
+        def.multiSelect!.distinct,
+      )
     : null;
 }
 
@@ -293,8 +324,9 @@ export function createTagDataForFilterValues(
   editable?: boolean,
   deletable?: boolean,
 ): _DtFilterFieldTagData | null {
+  const valueSeparator = ', ';
   let key: string | null = null;
-  let value: string | null = null;
+  let value: string | string[] | null = null;
   let separator: string | null = null;
   let isFreeText = false;
   let isFirstValue = true;
@@ -304,7 +336,10 @@ export function createTagDataForFilterValues(
       if (isFirstValue && filterValues.length > 1) {
         key = filterValue.option.viewValue;
       }
-      value = filterValue.option.viewValue;
+      if (value === null) {
+        value = [];
+      }
+      value.push(filterValue.option.viewValue);
     } else if (isDtFreeTextValue(filterValue)) {
       value = `${filterValue}`;
       isFreeText = true;
@@ -318,6 +353,11 @@ export function createTagDataForFilterValues(
       break;
     }
     isFirstValue = false;
+  }
+
+  // in case of autocomplete or multiSelect remove first value, which is actually the key
+  if (Array.isArray(value)) {
+    value = value.slice(1).join(valueSeparator);
   }
 
   return filterValues.length && value !== null
