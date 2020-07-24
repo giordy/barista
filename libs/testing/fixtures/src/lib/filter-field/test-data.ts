@@ -43,6 +43,16 @@ export const FILTER_FIELD_TEST_DATA = {
       unit: 's',
     },
     {
+      name: 'Seasoning',
+      multiOptions: [
+        { name: 'None' },
+        {
+          name: 'Homemade',
+          options: [{ name: 'Ketchup' }, { name: 'Mustard' }, { name: 'Mayo' }],
+        },
+      ],
+    },
+    {
       name: 'Not in Quickfilter',
       autocomplete: [
         { name: 'Option1' },

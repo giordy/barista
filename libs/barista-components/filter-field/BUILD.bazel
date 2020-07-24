@@ -45,12 +45,14 @@ ng_module_view_engine(
         "//libs/barista-components/autocomplete:compile",
         "//libs/barista-components/button:compile",
         "//libs/barista-components/button-group:compile",
+        "//libs/barista-components/checkbox:compile",
         "@npm//@angular/animations",
         "@npm//@angular/common",
         "@npm//@angular/cdk",
         "@npm//@angular/forms",
         "@npm//@angular/core",
         "@npm//rxjs",
+        "@npm//lodash-es",
     ],
 )
 

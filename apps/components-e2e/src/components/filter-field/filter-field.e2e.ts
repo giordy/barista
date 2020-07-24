@@ -17,27 +17,30 @@
 // tslint:disable no-lifecycle-call no-use-before-declare no-magic-numbers
 // tslint:disable no-any max-file-line-count no-unbound-method use-component-selector
 
+import { Selector } from 'testcafe';
+import { resetWindowSizeToDefault, waitForAngular } from '../../utils';
 import {
-  clickOption,
-  errorBox,
-  input,
   clearAll,
+  clickOption,
   filterTags,
   focusFilterFieldInput,
   getFilterfieldTags,
-  tagOverlay,
+  multiSelectApply,
+  multiSelectOption,
+  multiSelectPanel,
   setupSecondTestScenario,
+  switchToSecondDatasource,
+  clickMultiSelectOption,
+  input,
+  errorBox,
+  tagOverlay,
   filterFieldRangePanel,
 } from './filter-field.po';
-import { Selector } from 'testcafe';
-import { waitForAngular, resetWindowSizeToDefault } from '../../utils';
 
-fixture('Filter Field')
-  .page('http://localhost:4200/filter-field')
-  .beforeEach(async () => {
-    await waitForAngular();
-    await resetWindowSizeToDefault();
-  });
+fixture.page('http://localhost:4200/filter-field').beforeEach(async () => {
+  await waitForAngular();
+  await resetWindowSizeToDefault();
+});
 
 test('should not show a error box if there is no validator provided', async () => {
   await clickOption(1).typeText(input, 'abc').expect(errorBox.exists).notOk();
@@ -318,5 +321,134 @@ test('should close the range when blurring the filter field mid filter, returnin
     .pressKey('backspace')
     .wait(250)
     .expect(filterFieldRangePanel.exists)
+    .notOk();
+});
+
+test('should choose a multiselect node with the keyboard and submit the correct value', async (testController: TestController) => {
+  // Focus the filter field.
+  await focusFilterFieldInput();
+
+  // Select the test autocomplete
+  await testController
+    .pressKey('down down down down enter')
+    // Wait for a certain amount of time to let the filterfield refresh
+    .wait(250)
+    // Select the free text node and start typing
+    .pressKey('down down down enter')
+    .typeText(input, 'Custom selection')
+    // Wait for a certain amout fo time to let the filterfield refresh
+    .wait(250)
+    // Confirm the text typed in
+    .pressKey('enter');
+
+  const tags = await getFilterfieldTags();
+
+  await testController
+    .expect(tags.length)
+    .eql(1)
+    .expect(tags[0])
+    .eql('dontknowyet');
+});
+
+test('should not apply an empty multiselect node with the keyboard', async (testController: TestController) => {
+  // Focus the filter field.
+  await focusFilterFieldInput();
+
+  // Select the test autocomplete
+  await testController
+    .pressKey('down down down down enter')
+    // Wait for a certain amount of time to let the filterfield refresh
+    .wait(250)
+    // Select the free text node and start typing
+    .pressKey('down down down enter')
+    // Wait for a certain amout fo time to let the filterfield refresh
+    .wait(250)
+    // Confirm the text typed in
+    .pressKey('enter');
+
+  const tags = await getFilterfieldTags();
+
+  await testController
+    .expect(tags.length)
+    .eql(1)
+    .expect(tags[0])
+    .eql('dontknowyet');
+});
+
+test('should choose a multiselect node with the mouse and submit the correct value immediately', async (testController: TestController) => {
+  // Switch to second datasource.
+  await testController
+    .click(switchToSecondDatasource)
+    // Wait for the filterfield to catch up.
+    .wait(500);
+
+  // Select the multiSelect
+  await clickOption(4)
+    // Wait for a certain amount of time to let the filterfield refresh
+    .wait(250);
+
+  // Select the multiSelect option
+  await clickMultiSelectOption(3).wait(250);
+
+  // Submit the value immediately
+  await testController.click(multiSelectApply).wait(250);
+
+  const tags = await getFilterfieldTags();
+
+  await testController
+    .expect(tags.length)
+    .eql(1)
+    .expect(tags[0])
+    .match(/SeasoningMustard/);
+});
+
+test('should not apply an empty multiselect node with the mouse', async (testController: TestController) => {
+  // Switch to second datasource.
+  await testController
+    .click(switchToSecondDatasource)
+    // Wait for the filterfield to catch up.
+    .wait(500);
+
+  // Select the multiSelect
+  await clickOption(4)
+    // Wait for a certain amount of time to let the filterfield refresh
+    .wait(250);
+
+  // Submit the value immediately
+  await testController.click(multiSelectApply).wait(250);
+
+  // panel should not have closed
+  await testController.expect(multiSelectPanel.exists).ok();
+});
+
+test('should close the multiselect when blurring the filter field mid filter, returning back and deleting the current filter', async (testController: TestController) => {
+  // Switch to second datasource.
+  await testController
+    .click(switchToSecondDatasource)
+    // Wait for the filterfield to catch up.
+    .wait(500);
+
+  // Select the multiSelect
+  await clickOption(4)
+    // Wait for a certain amount of time to let the filterfield refresh
+    .wait(250);
+
+  await testController
+    .click(Selector('.outside'))
+    .expect(multiSelectPanel.exists)
+    .notOk();
+
+  // Focus the filter field again,
+  // press backspace - deleting the current filter
+  // the multiSelect should now be closed.
+  await focusFilterFieldInput();
+  await testController
+    .expect(multiSelectPanel.exists)
+    .ok()
+    .wait(250)
+    .pressKey('backspace')
+    .wait(250)
+    .debug()
+    .expect(multiSelectPanel.exists)
     .notOk();
 });

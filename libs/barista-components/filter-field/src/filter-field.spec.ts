@@ -37,8 +37,8 @@ import {
   DtFilterFieldModule,
   dtRangeDef,
   DT_FILTER_FIELD_TYPING_DEBOUNCE,
-  getDtFilterFieldRangeNoOperatorsError,
   DT_FILTER_VALUES_PARSER_CONFIG,
+  getDtFilterFieldRangeNoOperatorsError,
 } from '@dynatrace/barista-components/filter-field';
 import { DtIconModule } from '@dynatrace/barista-components/icon';
 import {
@@ -56,8 +56,8 @@ import {
 } from '@dynatrace/testing/fixtures';
 import { defaultTagDataForFilterValuesParser } from './filter-field-util';
 import {
-  DtFilterValue,
   DtFilterFieldTagData,
+  DtFilterValue,
   isDtAutocompleteValue,
 } from './types';
 
@@ -93,6 +93,21 @@ const TEST_DATA_RANGE = {
         },
         unit: 's',
       },
+    },
+  ],
+};
+
+const TEST_DATA_MULTI_SELECT = {
+  autocomplete: [
+    {
+      name: 'Seasoning',
+      multiOptions: [
+        { name: 'None' },
+        {
+          name: 'Homemade',
+          options: [{ name: 'Ketchup' }, { name: 'Mustard' }, { name: 'Mayo' }],
+        },
+      ],
     },
   ],
 };
@@ -137,6 +152,16 @@ const TEST_DATA_EDITMODE = {
         },
         unit: 's',
       },
+    },
+    {
+      name: 'Seasoning',
+      multiOptions: [
+        { name: 'None' },
+        {
+          name: 'Homemade',
+          options: [{ name: 'Ketchup' }, { name: 'Mustard' }, { name: 'Mayo' }],
+        },
+      ],
     },
     {
       name: 'DE (async)',
@@ -1307,6 +1332,172 @@ describe('DtFilterField', () => {
     });
   });
 
+  describe('with multi select option', () => {
+    beforeEach(() => {
+      fixture.componentInstance.dataSource.data = TEST_DATA_MULTI_SELECT;
+      fixture.detectChanges();
+
+      // Focus the filter field.
+      filterField.focus();
+      advanceFilterfieldCycle();
+    });
+
+    it('should open the multiSelect overlay if the multiSelect option is selected', () => {
+      let filterFieldMultiSelectElements = getMultiSelect(
+        overlayContainerElement,
+      );
+      expect(filterFieldMultiSelectElements.length).toBe(0);
+
+      getAndClickOption(overlayContainerElement, 0);
+
+      filterFieldMultiSelectElements = getMultiSelect(overlayContainerElement);
+
+      expect(filterFieldMultiSelectElements.length).toBe(1);
+    });
+
+    describe('opened', () => {
+      beforeEach(() => {
+        // Open the filter-field-multiSelect overlay.
+        getAndClickOption(overlayContainerElement, 0);
+      });
+
+      it('should have groups and options', () => {
+        const checkboxes = getMultiselectCheckboxLabels(
+          overlayContainerElement,
+        );
+        const applyButton = getMultiselectApplyButton(overlayContainerElement);
+
+        expect(checkboxes.length).toBe(4);
+        expect(checkboxes[0].textContent?.trim()).toBe('NoneNone');
+        expect(checkboxes[1].textContent?.trim()).toBe('KetchupKetchup');
+        expect(checkboxes[2].textContent?.trim()).toBe('MustardMustard');
+        expect(checkboxes[3].textContent?.trim()).toBe('MayoMayo');
+        expect(applyButton).toBeDefined();
+      });
+
+      // TODO: on next phase when navigation by keyboard is possible
+      // it('should set the focus onto the first checkbox by default', () => {
+      //   const firstButtonElement = overlayContainerElement.querySelector(
+      //     'dt-button-group-item',
+      //   );
+      //   expect(document.activeElement).toBe(firstButtonElement);
+      // });
+
+      it('should keep the apply button disabled until something is selected', () => {
+        const checkboxes = getMultiselectCheckboxInputs(
+          overlayContainerElement,
+        );
+        const applyButton = getMultiselectApplyButton(overlayContainerElement);
+
+        expect(applyButton[0].getAttribute('disabled')).toBeDefined();
+        // select
+        checkboxes[0].click();
+        fixture.detectChanges();
+
+        expect(applyButton[0].getAttribute('disabled')).toBeNull();
+
+        // unselect
+        checkboxes[0].click();
+        fixture.detectChanges();
+
+        expect(applyButton[0].getAttribute('disabled')).toBeDefined();
+      });
+
+      it('should close the multiSelect after the multi-select-filter is submitted', () => {
+        const checkboxes = getMultiselectCheckboxInputs(
+          overlayContainerElement,
+        );
+        const applyButton = getMultiselectApplyButton(overlayContainerElement);
+
+        checkboxes[0].click();
+        advanceFilterfieldCycle();
+
+        applyButton[0].click();
+        advanceFilterfieldCycle();
+
+        const multiSelectOverlay = getMultiSelect(overlayContainerElement);
+
+        expect(multiSelectOverlay.length).toBe(0);
+      });
+
+      it('should have the tag-filter committed in the filterfield with a single value for multiSelect', () => {
+        const checkboxes = getMultiselectCheckboxInputs(
+          overlayContainerElement,
+        );
+        const applyButton = getMultiselectApplyButton(overlayContainerElement);
+
+        checkboxes[0].click();
+        fixture.detectChanges();
+        applyButton[0].click();
+        fixture.detectChanges();
+
+        const tags = getFilterTags(fixture);
+        expect(tags[0].key).toBe('Seasoning');
+        expect(tags[0].separator).toBe(':');
+        expect(tags[0].value.trim()).toBe('None');
+      });
+
+      it('should have the tag-filter committed in the filterfield with multiple values for multiSelect', () => {
+        const checkboxes = getMultiselectCheckboxInputs(
+          overlayContainerElement,
+        );
+        const applyButton = getMultiselectApplyButton(overlayContainerElement);
+
+        checkboxes[1].click();
+        checkboxes[2].click();
+        checkboxes[3].click();
+        fixture.detectChanges();
+        applyButton[0].click();
+        fixture.detectChanges();
+
+        const tags = getFilterTags(fixture);
+        expect(tags[0].key).toBe('Seasoning');
+        expect(tags[0].separator).toBe(':');
+        expect(tags[0].value.trim()).toBe('Ketchup, Mustard, Mayo');
+      });
+
+      // TODO: test when keyboard interactions are enabled
+      // it('should close the filter-multiSelect when using the keyboard ESC', () => {
+      //   const operatorButtonElements = getOperatorButtonGroupItems(
+      //     overlayContainerElement,
+      //   );
+      //   dispatchKeyboardEvent(operatorButtonElements[0], 'keydown', ESCAPE);
+      //   fixture.detectChanges();
+
+      //   const multiSelectOverlay = getFilterFieldRange(overlayContainerElement);
+      //   expect(multiSelectOverlay.length).toBe(0);
+      // });
+
+      it('should reapply previously set multiSelect values when editing a multiSelect filter', () => {
+        const checkboxes = getMultiselectCheckboxInputs(
+          overlayContainerElement,
+        );
+        const applyButton = getMultiselectApplyButton(
+          overlayContainerElement,
+        )[0];
+
+        checkboxes[1].click();
+        fixture.detectChanges();
+        applyButton.click();
+        fixture.detectChanges();
+
+        const tagLabel = fixture.debugElement.queryAll(
+          By.css('.dt-filter-field-tag-label'),
+        )[0];
+        tagLabel.nativeElement.click();
+
+        advanceFilterfieldCycle();
+
+        // expect the multiSelect to open again
+        const multiSelect = getMultiSelect(overlayContainerElement);
+        expect(multiSelect.length).toBe(1);
+
+        // expect the values to be filled
+        expect(checkboxes[1].checked).toBeTruthy();
+      });
+    });
+  });
+
   describe('edit mode', () => {
     beforeEach(() => {
       fixture.componentInstance.dataSource.data = TEST_DATA_EDITMODE;
@@ -1330,8 +1521,20 @@ describe('DtFilterField', () => {
         { operator: 'range', unit: 's', range: [15, 80] },
       ];
 
+      let multiSelectFilter = [
+        TEST_DATA_EDITMODE.autocomplete[4],
+        (TEST_DATA_EDITMODE as any).autocomplete[4].multiOptions[1].options[0],
+        (TEST_DATA_EDITMODE as any).autocomplete[4].multiOptions[1].options[1],
+      ];
+      multiSelectFilter = multiSelectFilter;
+
       // Set filters as a starting point
-      filterField.filters = [autocompleteFilter, freeTextFilter, rangeFilter];
+      filterField.filters = [
+        autocompleteFilter,
+        freeTextFilter,
+        rangeFilter,
+        multiSelectFilter,
+      ];
       fixture.detectChanges();
     });
 
@@ -1349,6 +1552,10 @@ describe('DtFilterField', () => {
       expect(tags[2].key).toBe('Requests per minute');
       expect(tags[2].separator).toBe(':');
       expect(tags[2].value).toBe('15s - 80s');
+
+      expect(tags[3].key).toBe('Seasoning');
+      expect(tags[3].separator).toBe(':');
+      expect(tags[3].value).toBe('Ketchup, Mustard');
     });
 
     it('should reset the autocomplete filter when not changing anything and cancelling by mouse', () => {
@@ -1383,6 +1590,10 @@ describe('DtFilterField', () => {
       expect(filterTags[2].key).toBe('Requests per minute');
       expect(filterTags[2].separator).toBe(':');
       expect(filterTags[2].value).toBe('15s - 80s');
+
+      expect(filterTags[3].key).toBe('Seasoning');
+      expect(filterTags[3].separator).toBe(':');
+      expect(filterTags[3].value).toBe('Ketchup, Mustard');
     });
 
     it('should reset the autocomplete filter when not changing anything and cancelling by keyboard', () => {
@@ -1419,6 +1630,10 @@ describe('DtFilterField', () => {
       expect(filterTags[2].key).toBe('Requests per minute');
       expect(filterTags[2].separator).toBe(':');
       expect(filterTags[2].value).toBe('15s - 80s');
+
+      expect(filterTags[3].key).toBe('Seasoning');
+      expect(filterTags[3].separator).toBe(':');
+      expect(filterTags[3].value).toBe('Ketchup, Mustard');
     });
 
     it('should reset the freetext filter when not changing anything and cancelling by mouse', () => {
@@ -1445,6 +1660,10 @@ describe('DtFilterField', () => {
       expect(filterTags[2].key).toBe('Requests per minute');
       expect(filterTags[2].separator).toBe(':');
       expect(filterTags[2].value).toBe('15s - 80s');
+
+      expect(filterTags[3].key).toBe('Seasoning');
+      expect(filterTags[3].separator).toBe(':');
+      expect(filterTags[3].value).toBe('Ketchup, Mustard');
     });
 
     it('should reset the input value when editing the freetext, typing something (but not commiting the filter) and then cancelling', () => {
@@ -1476,6 +1695,10 @@ describe('DtFilterField', () => {
       expect(filterTags[2].separator).toBe(':');
       expect(filterTags[2].value).toBe('15s - 80s');
 
+      expect(filterTags[3].key).toBe('Seasoning');
+      expect(filterTags[3].separator).toBe(':');
+      expect(filterTags[3].value).toBe('Ketchup, Mustard');
+
       expect(inputfield.value).toBe('');
     });
 
@@ -1505,6 +1728,10 @@ describe('DtFilterField', () => {
       expect(filterTags[2].key).toBe('Requests per minute');
       expect(filterTags[2].separator).toBe(':');
       expect(filterTags[2].value).toBe('15s - 80s');
+
+      expect(filterTags[3].key).toBe('Seasoning');
+      expect(filterTags[3].separator).toBe(':');
+      expect(filterTags[3].value).toBe('Ketchup, Mustard');
     });
 
     it('should reset the range filter when not changing anything and cancelling by mouse', () => {
@@ -1539,6 +1766,10 @@ describe('DtFilterField', () => {
       expect(filterTags[2].key).toBe('Requests per minute');
       expect(filterTags[2].separator).toBe(':');
       expect(filterTags[2].value).toBe('15s - 80s');
+
+      expect(filterTags[3].key).toBe('Seasoning');
+      expect(filterTags[3].separator).toBe(':');
+      expect(filterTags[3].value).toBe('Ketchup, Mustard');
     });
 
     it('should reset the range filter when not changing anything and cancelling by keyboard', () => {
@@ -1576,6 +1807,10 @@ describe('DtFilterField', () => {
       expect(filterTags[2].key).toBe('Requests per minute');
       expect(filterTags[2].separator).toBe(':');
       expect(filterTags[2].value).toBe('15s - 80s');
+
+      expect(filterTags[3].key).toBe('Seasoning');
+      expect(filterTags[3].separator).toBe(':');
+      expect(filterTags[3].value).toBe('Ketchup, Mustard');
     });
 
     it('should not reset the range filter when focusing the range input element', () => {
@@ -1589,10 +1824,90 @@ describe('DtFilterField', () => {
       inputfields[0].click();
       advanceFilterfieldCycle();
 
-      expect(filterField.filters).toHaveLength(3);
+      expect(filterField.filters).toHaveLength(4);
       // Range filter should have set only the root filter (range def)
       expect(filterField.filters[2]).toHaveLength(1);
     });
+
+    it('should reset the multiSelect filter when not changing anything and cancelling by mouse', () => {
+      const tags = fixture.debugElement.queryAll(
+        By.css('.dt-filter-field-tag-label'),
+      );
+      tags[3].nativeElement.click();
+      advanceFilterfieldCycle();
+
+      // Expect the multiSelect filter to be open
+      let filterfield = getMultiSelect(overlayContainerElement);
+      expect(filterfield.length).toBe(1);
+
+      dispatchFakeEvent(document, 'click');
+      advanceFilterfieldCycle();
+
+      // Expect the multiSelect filter to be closed again
+      filterfield = getMultiSelect(overlayContainerElement);
+      expect(filterfield.length).toBe(0);
+
+      // Read the filters again and make expectations
+      const filterTags = getFilterTags(fixture);
+
+      expect(filterTags[0].key).toBe('AUT');
+      expect(filterTags[0].separator).toBe(':');
+      expect(filterTags[0].value).toBe('Linz');
+
+      expect(filterTags[1].key).toBe('Free');
+      expect(filterTags[1].separator).toBe('~');
+      expect(filterTags[1].value).toBe('Custom free text');
+
+      expect(filterTags[2].key).toBe('Requests per minute');
+      expect(filterTags[2].separator).toBe(':');
+      expect(filterTags[2].value).toBe('15s - 80s');
+
+      expect(filterTags[3].key).toBe('Seasoning');
+      expect(filterTags[3].separator).toBe(':');
+      expect(filterTags[3].value).toBe('Ketchup, Mustard');
+    });
+
+    // TODO: when keyboard interaction is added
+    // it('should reset the multiSelect filter when not changing anything and cancelling by keyboard', () => {
+    //   const tags = fixture.debugElement.queryAll(
+    //     By.css('.dt-filter-field-tag-label'),
+    //   );
+    //   tags[3].nativeElement.click();
+    //   advanceFilterfieldCycle();
+
+    //   // Expect the multiSelect filter to be open
+    //   let filterfield = getMultiSelect(overlayContainerElement);
+    //   expect(filterfield.length).toBe(1);
+
+    //   // Cancel editmode with keyboard
+    //   const inputfields = getRangeInputFields(overlayContainerElement);
+    //   dispatchKeyboardEvent(inputfields[0], 'keydown', ESCAPE);
+
+    //   advanceFilterfieldCycle();
+
+    //   // Expect the multiSelect filter to be closed again
+    //   filterfield = getMultiSelect(overlayContainerElement);
+    //   expect(filterfield.length).toBe(0);
+
+    //   // Read the filters again and make expectations
+    //   const filterTags = getFilterTags(fixture);
+
+    //   expect(filterTags[0].key).toBe('AUT');
+    //   expect(filterTags[0].separator).toBe(':');
+    //   expect(filterTags[0].value).toBe('Linz');
+
+    //   expect(filterTags[1].key).toBe('Free');
+    //   expect(filterTags[1].separator).toBe('~');
+    //   expect(filterTags[1].value).toBe('Custom free text');
+
+    //   expect(filterTags[2].key).toBe('Requests per minute');
+    //   expect(filterTags[2].separator).toBe(':');
+    //   expect(filterTags[2].value).toBe('15s - 80s');
+
+    //   expect(filterTags[3].key).toBe('Seasoning');
+    //   expect(filterTags[3].separator).toBe(':');
+    //   expect(filterTags[3].value).toBe('Ketchup, Mustard');
+    // });
 
     it('should make the edit to the first tag', () => {
       const tags = fixture.debugElement.queryAll(
@@ -1623,6 +1938,10 @@ describe('DtFilterField', () => {
       expect(filterTags[2].key).toBe('Requests per minute');
       expect(filterTags[2].separator).toBe(':');
       expect(filterTags[2].value).toBe('15s - 80s');
+
+      expect(filterTags[3].key).toBe('Seasoning');
+      expect(filterTags[3].separator).toBe(':');
+      expect(filterTags[3].value).toBe('Ketchup, Mustard');
     });
 
     it('should not reset anything when a filter is deleted in edit mode and an outside click is triggered', () => {
@@ -1630,7 +1949,7 @@ describe('DtFilterField', () => {
         By.css('.dt-filter-field-tag-label'),
       );
 
-      expect(tags.length).toBe(3);
+      expect(tags.length).toBe(4);
 
       tags[0].nativeElement.click();
       advanceFilterfieldCycle();
@@ -1642,7 +1961,7 @@ describe('DtFilterField', () => {
         By.css('.dt-filter-field-tag-label'),
       );
 
-      expect(tags.length).toBe(2);
+      expect(tags.length).toBe(3);
 
       dispatchFakeEvent(document, 'click');
       fixture.detectChanges();
@@ -1650,10 +1969,36 @@ describe('DtFilterField', () => {
         By.css('.dt-filter-field-tag-label'),
       );
 
-      expect(tags.length).toBe(2);
+      expect(tags.length).toBe(3);
     });
 
     it('should emit a filterchange event when the edit of a range is completed', () => {
+      let filterChangeEvent: DtFilterFieldChangeEvent<any> | undefined;
+
+      fixture.componentInstance.dataSource.data = FILTER_FIELD_TEST_DATA_SINGLE_OPTION;
+      const sub = filterField.filterChanges.subscribe(
+        (ev) => (filterChangeEvent = ev),
+      );
+
+      const tags = fixture.debugElement.queryAll(
+        By.css('.dt-filter-field-tag-label'),
+      );
+
+      tags[2].nativeElement.click();
+      advanceFilterfieldCycle();
+
+      const applyButton = getRangeApplyButton(overlayContainerElement)[0];
+      applyButton.click();
+      fixture.detectChanges();
+
+      expect(filterChangeEvent).toBeDefined();
+      expect(filterChangeEvent!.added.length).toBe(1);
+      expect(filterChangeEvent!.removed.length).toBe(0);
+
+      sub.unsubscribe();
+    });
+
+    it('should emit a filterchange event when the edit of a multiSelect is completed', () => {
       let filterChangeEvent: DtFilterFieldChangeEvent<any> | undefined;
 
       fixture.componentInstance.dataSource.data = FILTER_FIELD_TEST_DATA_SINGLE_OPTION;
@@ -1748,6 +2093,22 @@ describe('DtFilterField', () => {
       expect(tags[0].value).toBe('75s');
     });
 
+    it('should set the multiSelect filter programmatically', () => {
+      // Range filter preset with multiSelect operator, second unit and multiSelect from 15 to 80
+      const multiSelectFilter = [
+        TEST_DATA_EDITMODE.autocomplete[4],
+        { name: 'Mustard' },
+        { name: 'Mayo' },
+      ];
+      filterField.filters = [multiSelectFilter];
+      fixture.detectChanges();
+
+      const tags = getFilterTags(fixture);
+      expect(tags[0].key).toBe('Seasoning');
+      expect(tags[0].separator).toBe(':');
+      expect(tags[0].value).toBe('Mustard, Mayo');
+    });
+
     it('should set a filter which has the same shape but a different reference', () => {
       filterField.filters = [
         [
@@ -1785,7 +2146,7 @@ describe('DtFilterField', () => {
     it('should set a filter that has async parts', () => {
       filterField.filters = [
         [
-          TEST_DATA_EDITMODE.autocomplete[4],
+          TEST_DATA_EDITMODE.autocomplete[5],
           (TEST_DATA_EDITMODE_ASYNC as any).autocomplete[0],
         ],
       ];
@@ -2400,6 +2761,44 @@ function getRangeApplyButton(
 ): HTMLElement[] {
   return Array.from(
     overlayContainerElement.querySelectorAll('.dt-filter-field-range-apply'),
+  );
+}
+
+function getMultiSelect(overlayContainerElement: HTMLElement): HTMLElement[] {
+  return Array.from(
+    overlayContainerElement.querySelectorAll(
+      '.dt-filter-field-multi-select-panel',
+    ),
+  );
+}
+
+function getMultiselectCheckboxLabels(
+  overlayContainerElement: HTMLElement,
+): HTMLInputElement[] {
+  return Array.from(
+    overlayContainerElement.querySelectorAll(
+      '.dt-filter-field-multi-select-checkbox label',
+    ),
+  );
+}
+
+function getMultiselectCheckboxInputs(
+  overlayContainerElement: HTMLElement,
+): HTMLInputElement[] {
+  return Array.from(
+    overlayContainerElement.querySelectorAll(
+      '.dt-filter-field-multi-select-checkbox input',
+    ),
+  );
+}
+
+function getMultiselectApplyButton(
+  overlayContainerElement: HTMLElement,
+): HTMLElement[] {
+  return Array.from(
+    overlayContainerElement.querySelectorAll(
+      '.dt-filter-field-multi-select-apply',
+    ),
   );
 }
 
