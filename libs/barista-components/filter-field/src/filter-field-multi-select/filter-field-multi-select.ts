@@ -51,18 +51,6 @@ export type DtFilterFieldMultiSelectOperator =
   | 'greater-equal'
   | 'equal';
 
-/* TODO
- * clear sometimes keeps values when reapplied and mixes both multiselects
- * use `isDtMultiSelectValueEqual`
- */
-
-/* TEST
- * empty list
- * same list on edit
- * click outside
- * remove filter
- */
-
 @Component({
   selector: 'dt-filter-field-multi-select',
   templateUrl: 'filter-field-multi-select.html',

@@ -326,7 +326,7 @@ export function defaultTagDataForFilterValuesParser(
 ): DtFilterFieldTagData | null {
   const valueSeparator = ', ';
   let key: string | null = null;
-  let value: string | null = null;
+  let value: string = '';
   let multiValues: string[] = [];
   let separator: string | null = null;
   let isFreeText = false;

@@ -1400,7 +1400,6 @@ export class DtFilterField<T = any>
     this._autocompleteTrigger.closePanel();
     this._filterfieldRangeTrigger.closePanel();
     this._multiSelectTrigger.closePanel();
-
     if (this._editModeStashedValue) {
       this._cancelEditMode();
     }
