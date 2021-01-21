@@ -73,7 +73,7 @@ export class DtExampleFilterFieldPartial {
   currentFilterChanged(
     event: DtFilterFieldCurrentFilterChangeEvent<any>,
   ): void {
-    this.currentAddedFilter = event.added[0];
+    this.currentAddedFilter = event.currentFilter[0];
     if (this.currentAddedFilter === this.DATA.autocomplete[1]) {
       // Emulate loading a partial result with a http request
       setTimeout(() => {
